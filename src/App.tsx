@@ -66,8 +66,6 @@ export default function App() {
   const [workDuration, setWorkDuration] = useState(30);
   const [restDuration, setRestDuration] = useState(10);
   const [totalRounds, setTotalRounds] = useState(8);
-  const [isMuted, setIsMuted] = useState(false);
-  const [volume] = useState(0.8);
 
   // Presets
   const [presets, setPresets] = useState<Preset[]>(() => {
@@ -103,64 +101,6 @@ export default function App() {
 
   // Refs for timer
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-
-  const playBell = useCallback(() => {
-    if (isMuted) return;
-    try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') ctx.resume();
-
-      const frequencies = [800, 1600, 2400]; // Higher frequencies for that sharp "Ding"
-      
-      frequencies.forEach((freq, index) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = index === 0 ? 'triangle' : 'sine'; 
-          osc.frequency.setValueAtTime(freq, ctx.currentTime);
-          
-          gain.gain.setValueAtTime(0, ctx.currentTime);
-          
-          // Multiply by user volume to maintain slider control
-          const maxGain = 0.5 * volume;
-          gain.gain.linearRampToValueAtTime(maxGain, ctx.currentTime + 0.01);
-          gain.gain.exponentialRampToValueAtTime(0.01 * volume, ctx.currentTime + 1.2); // Sharp decay
-          
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          
-          osc.start();
-          osc.stop(ctx.currentTime + 1.2);
-      });
-    } catch (e) {
-      console.error("Audio error", e);
-    }
-  }, [isMuted, volume]);
-
-  // Coach Voice Generator
-  const coachSpeak = useCallback((text: string) => {
-    if (isMuted) return;
-    
-    // Cancel any ongoing speech to prioritize the immediate command
-    window.speechSynthesis.cancel();
-    
-    const msg = new SpeechSynthesisUtterance(text);
-    msg.pitch = 0.9;
-    msg.rate = 1.1; 
-    msg.volume = volume;
-
-    window.speechSynthesis.speak(msg);
-  }, [isMuted, volume]);
-
-  // Load voices proactively on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.getVoices();
-    }
-  }, []);
 
   // 1. Timer Interval Effect
   useEffect(() => {
@@ -190,67 +130,21 @@ export default function App() {
         setState('work');
         setTimeLeft(workDuration);
         triggerFlash();
-        if (currentRound > 1) { // Per logic, rounds 2+ start with bell. Wait, let's just ring it anyway unless prototype specifically conditionally branches
-            playBell();
-        } else {
-            playBell(); // Original logic always had it play on Start 
-        }
-        coachSpeak("Work! Stick and move!");
       } else if (state === 'work') {
         if (currentRound < totalRounds) {
           setState('rest');
           setTimeLeft(restDuration);
           setCurrentRound((prev) => prev + 1);
-          playBell();
-          coachSpeak("Sit down, breathe. You won that round.");
         } else {
           setState('finished');
-          playBell();
-          setTimeout(playBell, 400);
-          setTimeout(playBell, 800);
-          coachSpeak("That's it! It's over! You're the champ!");
         }
       } else if (state === 'rest') {
         setState('work');
         setTimeLeft(workDuration);
         triggerFlash();
-        playBell();
-        coachSpeak("Work! Stick and move!");
       }
     }
-  }, [timeLeft, state, workDuration, restDuration, currentRound, totalRounds, coachSpeak, playBell]);
-
-  // 3. Coach Voice Cues
-  useEffect(() => {
-    if (state === 'idle' || state === 'paused' || state === 'finished') return;
-
-    if (state === 'warmup') {
-      if (timeLeft === 8) coachSpeak("Showtime's coming. Hands up, chin down.");
-      else if (timeLeft === 3) coachSpeak("3");
-      else if (timeLeft === 2) coachSpeak("2");
-      else if (timeLeft === 1) {
-        coachSpeak("1");
-        setTimeout(playBell, 600); // Trigger the "Clang"
-      }
-    } 
-    else if (state === 'work') {
-      if (workDuration > 10 && timeLeft === Math.floor(workDuration / 2)) {
-        coachSpeak("Halfway home! Don't you quit!");
-      }
-      else if (timeLeft === 30) coachSpeak("30 seconds! Champions are made in the dark!");
-      else if (timeLeft === 10) coachSpeak("10 seconds of fury!");
-      else if (timeLeft <= 3 && timeLeft > 0) coachSpeak(timeLeft.toString());
-    } 
-    else if (state === 'rest') {
-      if (restDuration > 10 && timeLeft === Math.floor(restDuration / 2)) {
-        coachSpeak("Stay hydrated. Control your heart rate.");
-      }
-      else if (timeLeft === 10) coachSpeak("Back on your stools. Get ready.");
-      else if (timeLeft === 3) coachSpeak("3");
-      else if (timeLeft === 2) coachSpeak("2");
-      else if (timeLeft === 1) coachSpeak("BOX!");
-    }
-  }, [timeLeft, state, workDuration, restDuration, coachSpeak, playBell]);
+  }, [timeLeft, state, workDuration, restDuration, currentRound, totalRounds]);
 
   const startTimer = () => {
     if (state === 'idle' || state === 'finished') {
@@ -258,7 +152,6 @@ export default function App() {
       setTimeLeft(WARMUP_DURATION);
       setState('warmup');
       setShowSettings(false);
-      coachSpeak("Let's go Champ!");
     }
   };
 
