@@ -1,0 +1,97 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+@import url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/css/dseg.css');
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-sans: 'Inter', sans-serif;
+    --font-mono: 'DSEG7 Classic', monospace;
+    --color-bg-dark: #0A0B0D;
+    --color-card-bg: #15181C;
+    --color-accent-neon: #00FF9C;
+    --color-accent-warn: #FFB800;
+    --color-text-main: #FFFFFF;
+    --color-text-dim: #7C828A;
+    --color-border-color: #2D3139;
+}
+
+:root {
+    --background: #0A0B0D;
+    --foreground: #FFFFFF;
+    --card: #15181C;
+    --card-foreground: #FFFFFF;
+    --popover: #15181C;
+    --popover-foreground: #FFFFFF;
+    --primary: #00FF9C;
+    --primary-foreground: #0A0B0D;
+    --secondary: #2D3139;
+    --secondary-foreground: #FFFFFF;
+    --muted: #2D3139;
+    --muted-foreground: #7C828A;
+    --accent: #00FF9C;
+    --accent-foreground: #0A0B0D;
+    --destructive: #FF4444;
+    --border: #2D3139;
+    --input: #2D3139;
+    --ring: #00FF9C;
+    --radius: 1.25rem;
+}
+
+.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border-color outline-accent-neon/50;
+    }
+  body {
+    @apply bg-bg-dark text-text-main;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+
+@layer utilities {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
