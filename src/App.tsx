@@ -248,6 +248,53 @@ export default function App() {
     }
   }, [timeLeft, state, workDuration, restDuration, playBell, coachSpeak]);
 
+  // --- WAKE LOCK API LOGIC ---
+  useEffect(() => {
+    let wakeLock: any = null;
+
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('110% Intensity: Screen Lock Active');
+        }
+      } catch (err: any) {
+        console.error(`${err.name}, ${err.message}`);
+      }
+    };
+
+    const releaseWakeLock = () => {
+      if (wakeLock !== null) {
+        wakeLock.release().then(() => {
+          wakeLock = null;
+          console.log('110% Intensity: Screen Lock Released');
+        });
+      }
+    };
+
+    const handleVisibilityChange = async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Request the lock when the timer starts or is running
+    if (state === 'work' || state === 'rest' || state === 'warmup') {
+      requestWakeLock();
+    } 
+    // Release the lock when reset, paused, or match ends
+    else {
+      releaseWakeLock();
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [state]);
+
   const startTimer = () => {
     initAudio();
     if (state === 'idle' || state === 'finished') {
