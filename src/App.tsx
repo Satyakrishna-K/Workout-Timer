@@ -101,6 +101,72 @@ export default function App() {
 
   // Refs for timer
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const initAudio = useCallback(() => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+  }, []);
+
+  const playBell = useCallback(() => {
+    try {
+      initAudio();
+      const ctx = audioCtxRef.current!;
+      const frequencies = [800, 1600]; 
+      frequencies.forEach((freq) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        g.gain.setValueAtTime(0.5, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.2);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 1.2);
+      });
+    } catch (e) {
+      console.error("Audio error", e);
+    }
+  }, [initAudio]);
+
+  const coachSpeak = useCallback((text: string) => {
+    if (typeof window === 'undefined') return;
+    window.speechSynthesis.cancel();
+    const msg = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    
+    // Filter for English voices
+    const enVoices = voices.filter(v => v.lang.startsWith('en'));
+    
+    // Broad list of common male voice names/identifiers across OS and Browsers
+    const maleNames = ['male', 'david', 'mark', 'alex', 'daniel', 'fred', 'rocko', 'brian', 'arthur', 'james', 'aaron', 'guy'];
+    const femaleNames = ['female', 'zira', 'karen', 'samantha', 'victoria', 'tessa', 'moira', 'alice', 'ava', 'allison', 'susan'];
+    
+    // 1. Try to find an explicitly matched male voice
+    let voice = enVoices.find(v => maleNames.some(name => v.name.toLowerCase().includes(name)));
+    
+    // 2. If not found, try to find an English voice that is NOT explicitly female
+    if (!voice) {
+      voice = enVoices.find(v => !femaleNames.some(name => v.name.toLowerCase().includes(name)));
+    }
+    
+    msg.voice = voice || enVoices[0] || voices[0] || null;
+    msg.pitch = 0.8; // Lower pitch for a deeper, more masculine tone (default is 1.0)
+    msg.rate = 1.05;
+    msg.volume = 1.0;
+    
+    window.speechSynthesis.speak(msg);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.getVoices();
+    }
+  }, []);
 
   // 1. Timer Interval Effect
   useEffect(() => {
@@ -130,28 +196,66 @@ export default function App() {
         setState('work');
         setTimeLeft(workDuration);
         triggerFlash();
+        if (currentRound > 1) playBell();
       } else if (state === 'work') {
         if (currentRound < totalRounds) {
           setState('rest');
           setTimeLeft(restDuration);
           setCurrentRound((prev) => prev + 1);
+          playBell();
+          coachSpeak("Sit down, breathe. You won that round. Recover.");
         } else {
           setState('finished');
+          [0, 400, 800].forEach(d => setTimeout(playBell, d));
+          coachSpeak("That's it! It's over! You're the champ!");
         }
       } else if (state === 'rest') {
         setState('work');
         setTimeLeft(workDuration);
         triggerFlash();
+        playBell();
       }
     }
-  }, [timeLeft, state, workDuration, restDuration, currentRound, totalRounds]);
+  }, [timeLeft, state, workDuration, restDuration, currentRound, totalRounds, playBell, coachSpeak]);
+
+  // 3. Audio Cues Loop
+  useEffect(() => {
+    if (state === 'idle' || state === 'paused' || state === 'finished') return;
+
+    if (state === 'warmup') {
+      if (timeLeft === 8) coachSpeak("Showtime");
+      else if (timeLeft === 3) coachSpeak("3");
+      else if (timeLeft === 2) coachSpeak("2");
+      else if (timeLeft === 1) {
+        coachSpeak("1");
+        setTimeout(playBell, 500);
+      }
+    }
+    else if (state === 'work') {
+      if (workDuration > 10 && timeLeft === Math.floor(workDuration / 2)) coachSpeak("Halfway home! Don't you quit on me now!");
+      else if (timeLeft === 30) coachSpeak("30 seconds!");
+      else if (timeLeft === 10) coachSpeak("10 seconds of fury!");
+      else if (timeLeft === 3) coachSpeak("3");
+      else if (timeLeft === 2) coachSpeak("2");
+      else if (timeLeft === 1) coachSpeak("1");
+    }
+    else if (state === 'rest') {
+      if (restDuration > 10 && timeLeft === Math.floor(restDuration / 2)) coachSpeak("Stay hydrated. Keep your heart rate under control.");
+      else if (timeLeft === 10) coachSpeak("Get ready. It's go time.");
+      else if (timeLeft === 3) coachSpeak("3");
+      else if (timeLeft === 2) coachSpeak("2");
+      else if (timeLeft === 1) { coachSpeak("1"); }
+    }
+  }, [timeLeft, state, workDuration, restDuration, playBell, coachSpeak]);
 
   const startTimer = () => {
+    initAudio();
     if (state === 'idle' || state === 'finished') {
       setCurrentRound(1);
       setTimeLeft(WARMUP_DURATION);
       setState('warmup');
       setShowSettings(false);
+      coachSpeak("Let's go, Champ!");
     }
   };
 
@@ -187,7 +291,8 @@ export default function App() {
       <div className="w-full max-w-[400px] min-h-[600px] sm:min-h-[700px] bg-card-bg rounded-[40px] border border-border-color shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex flex-col relative p-6 sm:p-8 z-10 my-auto">
         
         {/* Header */}
-        <header className="text-center mb-6 mt-2">
+        <header className="text-center mb-6 mt-2 flex flex-col items-center">
+          <div className="text-[10px] opacity-30 tracking-[4px] mb-2 uppercase font-sans font-bold">PIZZA GUY // 110</div>
           <h1 
             className="text-[2rem] text-white ml-[2px]"
             style={{ fontFamily: 'Magneto, "Brush Script MT", cursive', letterSpacing: '1px' }}
@@ -374,7 +479,7 @@ export default function App() {
 
               <Button 
                 onClick={startTimer}
-                className="mt-auto w-full h-20 rounded-2xl bg-[#FFB800] text-bg-dark hover:bg-[#FFB800]/90 font-bold text-lg uppercase tracking-widest shadow-[0_10px_20px_rgba(255,184,0,0.2)] transition-all active:scale-95"
+                className="mt-4 w-full h-20 rounded-2xl bg-[#FFB800] text-bg-dark hover:bg-[#FFB800]/90 font-bold text-lg uppercase tracking-widest shadow-[0_10px_20px_rgba(255,184,0,0.2)] transition-all active:scale-95"
               >
                 <Play className="w-6 h-6 mr-2 fill-current" />
                 Start Workout
