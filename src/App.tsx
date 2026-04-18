@@ -259,7 +259,11 @@ export default function App() {
           console.log('110% Intensity: Screen Lock Active');
         }
       } catch (err: any) {
-        console.error(`${err.name}, ${err.message}`);
+        if (err.name !== 'NotAllowedError') {
+          console.error(`${err.name}, ${err.message}`);
+        } else {
+          console.log('Screen Wake Lock is disabled by browser policies, but timer will still function.');
+        }
       }
     };
 
@@ -546,8 +550,8 @@ export default function App() {
                 state === 'paused' ? "opacity-30" : "opacity-100"
               )}>
                 <motion.div 
-                  animate={{ scale: isFlashing ? [1, 1.1, 1] : 1 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  animate={{ scale: isFlashing ? [1, 1.05, 1] : 1 }}
+                  transition={{ duration: 0.5, ease: "easeInOut" }}
                   className="relative w-[320px] h-[320px] flex items-center justify-center"
                 >
                   {/* Progress Ring with Glow */}
@@ -568,73 +572,95 @@ export default function App() {
                       cy="128"
                       r="124"
                       fill="none"
-                      stroke={
-                        state === 'warmup' ? COLORS.WARMUP :
-                        state === 'work' ? COLORS.WORK : 
-                        state === 'rest' ? COLORS.REST : 
-                        COLORS.FINISHED
-                      }
                       strokeWidth="4"
                       strokeLinecap="round"
                       initial={{ pathLength: 1 }}
-                      animate={{ pathLength: timeLeft / (state === 'work' ? workDuration : state === 'rest' ? restDuration : WARMUP_DURATION) }}
-                      transition={{ duration: 1, ease: "linear" }}
-                      style={{
+                      animate={{ 
+                        pathLength: timeLeft / (state === 'work' ? workDuration : state === 'rest' ? restDuration : WARMUP_DURATION),
+                        stroke: state === 'warmup' ? COLORS.WARMUP : state === 'work' ? COLORS.WORK : state === 'rest' ? COLORS.REST : COLORS.FINISHED,
                         filter: `drop-shadow(0 0 8px ${state === 'warmup' ? COLORS.WARMUP : state === 'work' ? COLORS.WORK : state === 'rest' ? COLORS.REST : COLORS.FINISHED})`
+                      }}
+                      transition={{ 
+                        pathLength: { duration: 1, ease: "linear" },
+                        stroke: { duration: 0.8, ease: "easeInOut" },
+                        filter: { duration: 0.8, ease: "easeInOut" }
                       }}
                     />
                   </svg>
                   <div className="flex flex-col items-center justify-center">
-                    <motion.span 
-                      key={timeLeft}
-                      initial={{ scale: 0.9, opacity: 0.5 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="text-[85px] font-mono italic tracking-tight drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] transition-colors duration-300"
-                      style={{
-                        color: state === 'warmup' ? COLORS.WARMUP : state === 'work' ? COLORS.WORK : state === 'rest' ? COLORS.REST : COLORS.FINISHED,
-                        textShadow: `0 0 20px ${state === 'warmup' ? COLORS.WARMUP : state === 'work' ? COLORS.WORK : state === 'rest' ? COLORS.REST : COLORS.FINISHED}80`
-                      }}
-                    >
-                      {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
-                    </motion.span>
+                    <AnimatePresence mode="popLayout">
+                      <motion.span 
+                        key={`${state}-${timeLeft}`}
+                        initial={{ opacity: 0.8, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="text-[85px] font-mono italic tracking-tight drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]"
+                        style={{
+                          color: state === 'warmup' ? COLORS.WARMUP : state === 'work' ? COLORS.WORK : state === 'rest' ? COLORS.REST : COLORS.FINISHED,
+                          textShadow: `0 0 20px ${state === 'warmup' ? COLORS.WARMUP : state === 'work' ? COLORS.WORK : state === 'rest' ? COLORS.REST : COLORS.FINISHED}80`
+                        }}
+                      >
+                        {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
+                      </motion.span>
+                    </AnimatePresence>
                   </div>
                 </motion.div>
 
-                <div className="mt-6 flex flex-col items-center justify-center">
-                  {state === 'warmup' || (state === 'paused' && lastActiveState === 'warmup') ? (
-                    <span className="text-[#00D1FF] font-bold uppercase tracking-widest text-lg md:text-xl md:mb-5">PREPARE</span>
-                  ) : state === 'finished' ? (
-                    <span className="text-[#FFD700] font-bold uppercase tracking-widest text-lg md:text-xl drop-shadow-md md:mb-5">CHAMPION</span>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <span 
-                        className="font-bold uppercase tracking-widest text-2xl md:text-3xl mb-3 drop-shadow-md"
-                        style={{
-                          color: state === 'work' || (state === 'paused' && lastActiveState === 'work') ? COLORS.WORK : COLORS.REST
-                        }}
-                      >
-                        {state === 'work' || (state === 'paused' && lastActiveState === 'work') ? `ROUND ${currentRound}` : 'REST'}
-                      </span>
-                      
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-text-dim/50 uppercase tracking-widest text-xs font-bold">Total</span>
-                        <div className="text-xl text-text-dim flex items-baseline gap-1 font-mono font-bold">
-                          <span className="text-text-main opacity-80">{totalRounds < 10 ? `0${totalRounds}` : totalRounds}</span>
+                <div className="mt-8 flex flex-col items-center justify-center h-20">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={state + (state === 'work' ? currentRound : '') + (state === 'paused' ? lastActiveState : '')}
+                      initial={{ y: 5, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -5, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex flex-col items-center"
+                    >
+                      {state === 'warmup' || (state === 'paused' && lastActiveState === 'warmup') ? (
+                        <div className="flex flex-col items-center">
+                          <span className="text-[#00D1FF] font-bold uppercase tracking-widest text-xl md:text-2xl drop-shadow-md mb-2">PREPARE</span>
+                          <span className="text-text-main/50 uppercase tracking-[0.2em] font-medium text-xs md:text-sm">
+                            Upcoming: {totalRounds} Rounds
+                          </span>
                         </div>
-                      </div>
-                    </div>
-                  )}
+                      ) : state === 'finished' ? (
+                        <div className="flex flex-col items-center">
+                          <span className="text-[#FFD700] font-bold uppercase tracking-widest text-xl md:text-2xl drop-shadow-md mb-2">CHAMPION</span>
+                          <span className="text-text-main/50 uppercase tracking-[0.2em] font-medium text-xs md:text-sm">
+                            Completed {totalRounds} Rounds
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <span 
+                            className="font-bold uppercase tracking-widest text-3xl md:text-4xl drop-shadow-md transition-colors duration-500 mb-2"
+                            style={{
+                              color: state === 'work' || (state === 'paused' && lastActiveState === 'work') ? COLORS.WORK : COLORS.REST
+                            }}
+                          >
+                            {state === 'work' || (state === 'paused' && lastActiveState === 'work') ? 'WORKOUT' : 'REST'}
+                          </span>
+                          
+                          <span className="text-text-main/70 uppercase tracking-[0.2em] font-bold text-sm md:text-base">
+                            Round {currentRound} of {totalRounds}
+                          </span>
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
               </div>
 
               {/* Controls */}
               <footer className="w-full flex gap-4 mt-auto">
-                <Button 
-                  onClick={handleReset}
-                  className="flex-1 h-20 rounded-2xl bg-white/[0.05] border border-border-color text-text-main hover:bg-white/[0.1] font-bold text-lg uppercase tracking-widest"
-                >
-                  Reset
-                </Button>
+                {state !== 'finished' && (
+                  <Button 
+                    onClick={handleReset}
+                    className="flex-1 h-20 rounded-2xl bg-white/[0.05] border border-border-color text-text-main hover:bg-white/[0.1] font-bold text-lg uppercase tracking-widest"
+                  >
+                    Reset
+                  </Button>
+                )}
                 {state !== 'finished' ? (
                   <Button 
                     onClick={handleTogglePause}
@@ -645,7 +671,7 @@ export default function App() {
                 ) : (
                   <Button 
                     onClick={handleReset}
-                    className="flex-1 h-20 rounded-2xl bg-indigo-500 text-white hover:bg-indigo-600 font-bold text-lg uppercase tracking-widest"
+                    className="w-full h-20 rounded-2xl bg-indigo-500 text-white hover:bg-indigo-600 font-bold text-lg uppercase tracking-widest shadow-[0_10px_20px_rgba(99,102,241,0.2)]"
                   >
                     Done
                   </Button>
